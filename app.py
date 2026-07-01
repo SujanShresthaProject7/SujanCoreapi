@@ -17,7 +17,7 @@ OPENROUTER_API_KEY = "sk-or-v1-2e0a5972d6330bfb948ab597e2cba6796a565e0b517551614
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-MODEL = os.environ.get(
+MODEL = (
     "MODEL",
     "meta-llama/llama-3.3-70b-instruct:free"
 )
