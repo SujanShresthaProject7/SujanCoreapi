@@ -1,4 +1,3 @@
-import os
 import uuid
 import time
 import threading
@@ -13,7 +12,7 @@ CORS(app)
 # CONFIG
 # ==========================
 
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -34,6 +33,9 @@ SYSTEM_PROMPT = ("You are Proxima, a helpful and friendly AI assistant. "
 SESSION_TTL = 60 * 60 * 6
 MAX_HISTORY = 20
 START_TIME = time.time()
+
+MAX_RETRIES = 3
+DEFAULT_RETRY_WAIT = 5  # seconds, used if OpenRouter doesn't send Retry-After
 
 sessions = {}
 lock = threading.Lock()
@@ -94,18 +96,39 @@ def call_model(history):
         ] + history
     }
 
-    response = requests.post(
-        OPENROUTER_URL,
-        headers=headers,
-        json=payload,
-        timeout=60
-    )
+    last_error = None
 
-    response.raise_for_status()
+    for attempt in range(MAX_RETRIES):
 
-    data = response.json()
+        response = requests.post(
+            OPENROUTER_URL,
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
 
-    return data["choices"][0]["message"]["content"].strip()
+        if response.status_code == 429:
+            wait = response.headers.get("Retry-After")
+            try:
+                wait = float(wait) if wait else DEFAULT_RETRY_WAIT
+            except ValueError:
+                wait = DEFAULT_RETRY_WAIT
+
+            last_error = f"429 Too Many Requests (attempt {attempt + 1}/{MAX_RETRIES})"
+
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(wait)
+                continue
+            else:
+                response.raise_for_status()
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        return data["choices"][0]["message"]["content"].strip()
+
+    raise Exception(last_error or "Failed to get a response from the model")
 
 
 # ==========================
@@ -218,5 +241,5 @@ def ping():
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
-        port=int(os.environ.get("PORT", 5000))
+        port=5000
     )
