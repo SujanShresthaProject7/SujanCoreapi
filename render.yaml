@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: chat-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: MODEL
+        value: openai/gpt-4o
+      - key: SITE_URL
+        value: https://your-app.onrender.com
+      - key: SITE_NAME
+        value: My Chat API
